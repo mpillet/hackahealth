@@ -20,6 +20,7 @@ if __name__ == "__main__":
     fc = 0.5
     Wn = fc/nyq
     b, a = signal.butter(4, Wn, 'low', analog=True)
+    width, height= pyautogui.size()
 
     starttime = time.time()
     nb_iter = 0
@@ -37,6 +38,7 @@ if __name__ == "__main__":
         #y_array.pop(0)
 
         x , y = record()
+        y = height - y
         print (f'{x} , {y}')
         x_array.append(x)
         y_array.append(y)

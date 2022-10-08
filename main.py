@@ -1,60 +1,86 @@
-import pyautogui
-import threading
-import sched, time
+import time
 import matplotlib.pyplot as plt
+import sys
+from pynput.mouse import Button, Controller
 
-import pyautogui, sys
 import threading
+import numpy as np
 from scipy import signal
 print('Press Ctrl-C to quit.')
 
+mouse = Controller()
+
+
+def moving_average(a, n=3) :
+    ret = np.cumsum(a, dtype=float)
+    ret[n:] = ret[n:] - ret[:-n]
+    return ret[n - 1:] / n
 
 def record():
-    x, y = pyautogui.position()
+    x, y = mouse.position
     return x,y
 
 if __name__ == "__main__":
-    sampling_period = 0.001
+    sampling_period = 1 / 144
     fs = 1 / sampling_period
     nyq = fs/2
-    fc = 0.5
+    fc = 5
     Wn = fc/nyq
-    b, a = signal.butter(4, Wn, 'low', analog=True)
-    width, height= pyautogui.size()
+    b, a = signal.butter(4, Wn, 'low')
 
     starttime = time.time()
     nb_iter = 0
-    x_array = []
-    y_array = []      
-    x , y = record()
-    for i in range(19):
-        x_array.append(x)
-        y_array.append(y)
-    nb_iter = 0
-    while nb_iter < 3000:
-        time.sleep(sampling_period - ((time.time() - starttime) % sampling_period))
+    new_x , new_y = record()
+    true_x =[new_x]
+    true_y = [new_y]
+    filtered_x = []
+    filtered_y = []     
 
-        #x_array.pop(0)
-        #y_array.pop(0)
 
-        x , y = record()
-        y = height - y
-        print (f'{x} , {y}')
-        x_array.append(x)
-        y_array.append(y)
+    nb_iter = 0 
+    start = False
+    new_vx = 0
+    new_vy = 0
+    x_speed = []
+    y_speed = [] 
+    filtered_vx = []
+    filtered_vy = []
+
+
+    while True:
+
+        time.sleep(sampling_period)
+        if nb_iter >= 300:
+            start = True
+            x_speed.pop(0)
+            y_speed.pop(0)
+            filtered_vx.pop(0)
+            filtered_vy.pop(0)
+        x = true_x[-1]
+        y = true_y[-1]
+        new_x , new_y = record()
+        new_vx = new_x - x
+        new_vy = new_y - y
+
+        x_speed.append(new_vx)
+        y_speed.append(new_vy)
+
+   
+
+        if nb_iter >= 150 :
+            #filtered_vx.append(signal.lfilter(b,a, x_speed)[-1])
+            #filtered_vy.append(signal.lfilter(b,a, y_speed)[-1])
+            filtered_vx.append(np.mean(x_speed))
+            filtered_vy.append(np.mean(y_speed))
+        #print(x_speed)
+        #print(filtered_vx)
+        if start:
+    
+  
+            true_x.append(x + filtered_vx[-1])
+            true_y.append(y + filtered_vy[-1])
+
+            mouse.position =(true_x[-1], true_y[-1]) 
+ 
         nb_iter += 1
 
-
-    filtered_x= signal.filtfilt(b,a, x_array)
-    filtered_y = signal.filtfilt(b,a, y_array)
-    pos = [] 
-    for i in range(0,len(x_array)-1):
-        pos.append((x_array[i],y_array[i]))
-    plt.scatter(x_array,y_array)
-    #plt.plot(pos, 'r-',label='x')
-    #plt.plot((filtered_x,filtered_y), 'b-',label='filtered_x')
-    plt.show()
-
-        
-        #pyautogui.moveTo(filtered_x, filtered_y) 
-        #print(f'moved to {filtered_x} and {filtered_y}')

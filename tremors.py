@@ -12,7 +12,7 @@ def on_move(x, y):
     global pressed
     global tmp_x, tmp_y
     print(tmp_x, tmp_y)
-    if (pressed):
+    if not pressed:
         mouse.position = (tmp_x + random.random(),
                           tmp_y + random.random())
         return

@@ -65,7 +65,7 @@ def intercept(event_type, event):
     return
 
 if __name__ == "__main__":
-    UDP_IP = "172.20.10.4" #Have to edit this according to the new ip of the ian's computer
+    UDP_IP = "192.168.2.1" #Have to edit this according to the new ip of the ian's computer
     UDP_PORT = 9027
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     

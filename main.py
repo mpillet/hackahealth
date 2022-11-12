@@ -1,14 +1,20 @@
 import time
-import matplotlib.pyplot as plt
 import sys
-from pynput.mouse import Button, Controller
+from pynput.mouse import Button, Controller, Listener 
 
 import threading
 import numpy as np
-from scipy import signal
+import socket
+import struct
+
 print('Press Ctrl-C to quit.')
 
 mouse = Controller()
+
+def low_pass(previousFilterValue, input, dt, cuttofreq) :
+    tau = 1./(2*np.pi*cuttofreq)
+    alpha = dt/(tau+dt)
+    return alpha*input+(1.-alpha)*previousFilterValue
 
 
 def moving_average(a, n=3) :
@@ -19,68 +25,95 @@ def moving_average(a, n=3) :
 def record():
     x, y = mouse.position
     return x,y
+    
+def on_move(new_x, new_y):
+    #time.sleep(1/50)
+    #new_x , new_y = record()
+    global previousFilterValueX
+    global previousFilterValueY
+    
+    cuttofreq = 5
+    dt = 1/500
+    
+    filtered_x = low_pass(previousFilterValueX, new_x, dt, cuttofreq)
+    filtered_y = low_pass(previousFilterValueY, new_y, dt, cuttofreq)
+
+    
+    previousFilterValueX = filtered_x
+    previousFilterValueY = filtered_y
+    
+    print("Prev: b'" ,int(new_x) , int(new_y) )
+#        mouse.position =(filtered_x, filtered_y) 
+    buf = str.encode("\n".join([str(int(filtered_x)),str(int(filtered_y))]))
+                
+    sock.sendto(buf, (UDP_IP,UDP_PORT))
+    print('sent:', buf) 
+    
+def on_click(x,y,osef,pressed):
+    if pressed:
+        buf = str.encode("!!\nSalut Ian")
+        sock.sendto(buf, (UDP_IP,UDP_PORT))
+    else:
+        buf = str.encode("!!\nAdieu Ian")
+        sock.sendto(buf, (UDP_IP,UDP_PORT))
+    print(buf)
+    return
+        
+def intercept(event_type, event):
+    print(event)
+    
+    return
 
 if __name__ == "__main__":
-    sampling_period = 1 / 144
-    fs = 1 / sampling_period
-    nyq = fs/2
-    fc = 5
-    Wn = fc/nyq
-    b, a = signal.butter(4, Wn, 'low')
+    UDP_IP = "172.20.10.4" #Have to edit this according to the new ip of the ian's computer
+    UDP_PORT = 9027
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    
+    previousFilterValueX = 0
+    previousFilterValueY = 0
+
 
     starttime = time.time()
     nb_iter = 0
     new_x , new_y = record()
-    true_x =[new_x]
-    true_y = [new_y]
-    filtered_x = []
-    filtered_y = []     
+
+    filtered_x = 0
+    filtered_y = 0 
 
 
-    nb_iter = 0 
-    start = False
-    new_vx = 0
-    new_vy = 0
-    x_speed = []
-    y_speed = [] 
-    filtered_vx = []
-    filtered_vy = []
+    #
+    #with Listener(suppress=True, on_click=on_click) as listener:
+        #listener.join()
+    if True:
+        listener = Listener(suppress=True, on_click=on_click)
+        listener.start()
+        
+        print('IN')
+        while True:
+            dt = 1/25
+            time.sleep(dt)
+            new_x , new_y = record()
 
-
-    while True:
-
-        time.sleep(sampling_period)
-        if nb_iter >= 300:
-            start = True
-            x_speed.pop(0)
-            y_speed.pop(0)
-            filtered_vx.pop(0)
-            filtered_vy.pop(0)
-        x = true_x[-1]
-        y = true_y[-1]
-        new_x , new_y = record()
-        new_vx = new_x - x
-        new_vy = new_y - y
-
-        x_speed.append(new_vx)
-        y_speed.append(new_vy)
-
-   
-
-        if nb_iter >= 150 :
-            #filtered_vx.append(signal.lfilter(b,a, x_speed)[-1])
-            #filtered_vy.append(signal.lfilter(b,a, y_speed)[-1])
-            filtered_vx.append(np.mean(x_speed))
-            filtered_vy.append(np.mean(y_speed))
-        #print(x_speed)
-        #print(filtered_vx)
-        if start:
-    
-  
-            true_x.append(x + filtered_vx[-1])
-            true_y.append(y + filtered_vy[-1])
-
-            mouse.position =(true_x[-1], true_y[-1]) 
+            
+            cuttofreq = 0.5
+            
+            
+            
+            #filtered_x = previousFilterValueX - 0.5*(previousFilterValueX-low_pass(previousFilterValueX, new_x, dt, cuttofreq))
+            #filtered_y = previousFilterValueY - 0.5*(previousFilterValueY-low_pass(previousFilterValueY, new_y, dt, cuttofreq))
+            
+            filtered_x = low_pass(previousFilterValueX, new_x, dt, cuttofreq)
+            filtered_y = low_pass(previousFilterValueY, new_y, dt, cuttofreq)
+            
+            
+            previousFilterValueX = filtered_x
+            previousFilterValueY = filtered_y
+            
+            print("Prev: b'" ,int(new_x) , int(new_y) )
+        #        mouse.position =(filtered_x, filtered_y) 
+            buf = str.encode("\n".join([str(int(filtered_x)),str(int(filtered_y))]))
+            #buf = str.encode("\n".join([str(int(new_x)),str(int(new_y))]))            
+            sock.sendto(buf, (UDP_IP,UDP_PORT))
+            print('sent:', buf) 
  
-        nb_iter += 1
 
